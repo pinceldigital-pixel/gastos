@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Gastos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="manifest" href="manifest.json">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .hidden { display: none !important; }
+        .view-transition { transition: opacity 0.3s ease, transform 0.3s ease; }
+        .view-hidden { opacity: 0; transform: translateY(10px); pointer-events: none; }
+        .modal-bg { backdrop-filter: blur(5px); }
+        .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        /* Estilos para el selector de categoría personalizado */
+        .category-btn.selected {
+            border-color: #8b5cf6; /* violet-500 */
+            background-color: #ede9fe; /* violet-100 */
+            color: #7c3aed; /* violet-600 */
+        }
+        /* Estilos para el calendario (flatpickr) */
+        .flatpickr-calendar {
+            font-family: 'Inter', sans-serif;
+            background: #ffffff;
+            border-radius: 0.75rem;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            z-index: 1000; /* Asegurar que esté por encima de otros elementos */
+        }
+        .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange {
+            background: #8b5cf6;
+            border-color: #8b5cf6;
+        }
+        .flatpickr-day:hover {
+            background: #ede9fe;
+        }
+        .flatpickr-months .flatpickr-month {
+            color: #1f2937;
+            font-weight: 600;
+        }
+        .flatpickr-weekdays {
+            background: #f9fafb;
+        }
+        span.flatpickr-weekday {
+            color: #4b5563;
+            font-weight: 600;
+        }
+        /* Estilo para el contenedor del input de fecha con icono */
+        .date-input-container {
+            position: relative;
+        }
+        .date-input-container .icon-calendar {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af; /* gray-400 */
+            pointer-events: none; /* Asegura que el clic pase al input */
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div id="app-container" class="max-w-md mx-auto min-h-screen bg-white shadow-lg flex flex-col">
+        
+        <main class="flex-grow p-6 pb-24">
+            <div id="inicio-view">
+                <header class="flex justify-between items-center mb-6">
+                    <div>
+                        <h1 class="text-2xl font-bold">Gastos</h1>
+                        <p class="text-gray-500">Resumen de tus finanzas</p>
+                    </div>
+                    <img src="https://placehold.co/40x40/eab308/ffffff?text=A" alt="User" class="rounded-full">
+                </header>
+
+                <div class="bg-gray-800 text-white p-6 rounded-2xl shadow-lg mb-8">
+                    <p class="text-sm text-gray-300 mb-1">Total de Gastos (Mes)</p>
+                    <p id="total-gastos-mes" class="text-4xl font-bold">$0.00</p>
+                </div>
+
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Gastos Recientes</h2>
+                    <button id="view-all-btn" class="text-violet-600 font-semibold">Ver Todo</button>
+                </div>
+
+                <div id="lista-gastos-recientes" class="space-y-3">
+                    <p class="text-center text-gray-500 py-4">No hay gastos registrados todavía.</p>
+                </div>
+            </div>
+
+            <div id="historial-view" class="hidden">
+                 <header class="mb-6">
+                    <h1 class="text-2xl font-bold">Historial y Resumen</h1>
+                    <p class="text-gray-500">Filtra y busca tus gastos</p>
+                </header>
+
+                <div class="bg-gray-100 p-4 rounded-lg mb-6">
+                    <h3 class="font-semibold mb-2">Filtrar por rango de fechas</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="date-input-container">
+                            <label for="fecha-inicio" class="text-sm text-gray-600">Desde</label>
+                            <input type="text" id="fecha-inicio" class="w-full p-2 border rounded-md bg-white" placeholder="Fecha inicio...">
+                            <svg class="icon-calendar w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div class="date-input-container">
+                            <label for="fecha-fin" class="text-sm text-gray-600">Hasta</label>
+                            <input type="text" id="fecha-fin" class="w-full p-2 border rounded-md bg-white" placeholder="Fecha fin...">
+                             <svg class="icon-calendar w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                    </div>
+                     <button id="filtrar-btn" class="mt-4 w-full bg-violet-600 text-white py-2 rounded-lg hover:bg-violet-700 transition">Aplicar Filtro</button>
+                     <button id="reset-filtro-btn" class="mt-2 w-full bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition">Limpiar</button>
+                </div>
+                
+                <div id="resumen-container">
+                    <h3 class="font-semibold text-lg mb-2">Resumen por Categoría</h3>
+                    <div id="resumen-categorias" class="space-y-2">
+                         <p class="text-center text-gray-500 py-4">Aplica un filtro para ver el resumen.</p>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+        
+        <button id="abrir-modal-gasto-btn" class="fixed bottom-24 right-8 bg-violet-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-3xl font-light hover:bg-violet-700 transition transform hover:scale-110">
+            +
+        </button>
+
+        <nav class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 flex justify-around p-2">
+            <button data-view="inicio-view" class="nav-btn flex-1 flex flex-col items-center p-2 rounded-lg text-violet-600 bg-violet-100">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                <span class="text-xs font-medium">Inicio</span>
+            </button>
+            <button data-view="historial-view" class="nav-btn flex-1 flex flex-col items-center p-2 rounded-lg text-gray-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span class="text-xs font-medium">Historial</span>
+            </button>
+        </nav>
+    </div>
+
+    <div id="modal-gasto" class="hidden fixed inset-0 bg-black bg-opacity-50 modal-bg flex items-end">
+        <div id="modal-gasto-contenido" class="w-full bg-white rounded-t-2xl p-6 animate-slide-up">
+            <h2 class="text-xl font-bold mb-4">Añadir Gasto</h2>
+            <form id="form-gasto">
+                <div class="mb-4">
+                    <label for="monto" class="text-gray-600">Monto</label>
+                    <input type="number" id="monto" step="0.01" placeholder="$0.00" class="w-full text-3xl font-bold p-2 border-b-2 border-gray-300 focus:border-violet-500 outline-none" required>
+                </div>
+                <div class="mb-4">
+                    <label for="descripcion" class="text-gray-600">Descripción</label>
+                    <input type="text" id="descripcion" placeholder="Ej: Café con amigos" class="w-full p-2 border rounded-md">
+                </div>
+                <div class="mb-4">
+                    <label class="text-gray-600 mb-2 block">Categoría</label>
+                    <input type="hidden" id="categoria-hidden" name="categoria" required>
+                    <div id="categoria-selector" class="grid grid-cols-3 gap-2">
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <label for="fecha" class="text-gray-600">Fecha</label>
+                    <div class="date-input-container">
+                        <input type="text" id="fecha" class="w-full p-2 border rounded-md bg-white" placeholder="Seleccionar fecha..." required>
+                        <svg class="icon-calendar w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <button type="button" id="cerrar-modal-gasto-btn" class="w-full py-3 bg-gray-200 text-gray-700 rounded-lg">Cancelar</button>
+                    <button type="submit" class="w-full py-3 bg-violet-600 text-white rounded-lg">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-confirm-delete" class="hidden fixed inset-0 bg-black bg-opacity-50 modal-bg flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-6 shadow-lg max-w-sm w-full animate-slide-up">
+            <h2 class="text-xl font-bold mb-2">Confirmar Eliminación</h2>
+            <p class="text-gray-600 mb-6">¿Estás seguro de que quieres eliminar este gasto? Esta acción no se puede deshacer.</p>
+            <div class="flex gap-4">
+                <button id="cancel-delete-btn" class="w-full py-3 bg-gray-200 text-gray-700 rounded-lg">Cancelar</button>
+                <button id="confirm-delete-btn" class="w-full py-3 bg-red-600 text-white rounded-lg">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+
+    <svg width="0" height="0" class="hidden">
+        <defs>
+            <symbol id="icon-hogar" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </symbol>
+            <symbol id="icon-transporte" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="12" rx="2"></rect>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+                <circle cx="7" cy="19" r="2"></circle>
+                <circle cx="17" cy="19" r="2"></circle>
+                <path d="M9 19h6"/>
+            </symbol>
+             <symbol id="icon-comida" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 11h18a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2z"/>
+                <path d="M12 15s-2 1.5-4 0"/>
+                <path d="M16 15s-2 1.5-4 0"/>
+                <path d="M5 11V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/>
+            </symbol>
+            <symbol id="icon-ocio" viewBox="0 0 24 24" fill="none" stroke="#84cc16" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 12h4m-2-2v4"></path>
+                <path d="M18 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm-4 4a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"></path>
+                <path d="M4 8L2.5 9.5c-1 1-1.5 2.5-1.5 4s.5 3 1.5 4L4 19c1.5 1.5 3.5 2 5.5 2h5c2 0 4-.5 5.5-2l1.5-1.5c1-1 1.5-2.5 1.5-4s-.5-3-1.5-4L20 8c-1.5-1.5-3.5-2-5.5-2h-5C7.5 6 5.5 6.5 4 8z"></path>
+            </symbol>
+            <symbol id="icon-otro" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 0 1-8 0"></path>
+            </symbol>
+            <symbol id="icon-trash" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
+            </symbol>
+        </defs>
+    </svg>
+    
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- ESTADO Y DATOS ---
+            let gastos = [];
+            let vistaActual = 'inicio-view';
+            let expenseIdToDelete = null;
+
+            const CATEGORIA_ICONOS = {
+                'Hogar': '#icon-hogar',
+                'Transporte': '#icon-transporte',
+                'Comida': '#icon-comida',
+                'Ocio': '#icon-ocio',
+                'Otro': '#icon-otro'
+            };
+
+            const CATEGORIA_COLORES = {
+                'Hogar': 'bg-teal-100 text-teal-500',
+                'Transporte': 'bg-violet-100 text-violet-500',
+                'Comida': 'bg-orange-100 text-orange-500',
+                'Ocio': 'bg-lime-100 text-lime-500',
+                'Otro': 'bg-red-100 text-red-500'
+            };
+
+
+            // --- ELEMENTOS DEL DOM ---
+            const vistas = document.querySelectorAll('main > div');
+            const botonesNav = document.querySelectorAll('.nav-btn');
+            const modalGasto = document.getElementById('modal-gasto');
+            const abrirModalBtn = document.getElementById('abrir-modal-gasto-btn');
+            const cerrarModalBtn = document.getElementById('cerrar-modal-gasto-btn');
+            const formGasto = document.getElementById('form-gasto');
+            const listaGastosRecientes = document.getElementById('lista-gastos-recientes');
+            const totalGastosMesEl = document.getElementById('total-gastos-mes');
+            const viewAllBtn = document.getElementById('view-all-btn');
+            const filtrarBtn = document.getElementById('filtrar-btn');
+            const resetFiltroBtn = document.getElementById('reset-filtro-btn');
+            const resumenCategoriasEl = document.getElementById('resumen-categorias');
+            const fechaInicioInput = document.getElementById('fecha-inicio');
+            const fechaFinInput = document.getElementById('fecha-fin');
+            const fechaInput = document.getElementById('fecha');
+            const categoriaSelector = document.getElementById('categoria-selector');
+            const categoriaHiddenInput = document.getElementById('categoria-hidden');
+            const modalConfirmDelete = document.getElementById('modal-confirm-delete');
+            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+
+
+            // --- FUNCIONES ---
+
+            const formatDateHeading = (date) => {
+                const today = new Date();
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                const dateToCompare = new Date(date);
+
+                today.setHours(0, 0, 0, 0);
+                yesterday.setHours(0, 0, 0, 0);
+                dateToCompare.setHours(0, 0, 0, 0);
+
+                if (dateToCompare.getTime() === today.getTime()) return 'Hoy';
+                if (dateToCompare.getTime() === yesterday.getTime()) return 'Ayer';
+                
+                return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+            };
+
+            const formatearMoneda = (valor) => valor.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+            const guardarGastos = () => localStorage.setItem('gastosApp', JSON.stringify(gastos));
+
+            const cargarGastos = () => {
+                const gastosGuardados = localStorage.getItem('gastosApp');
+                if (gastosGuardados) {
+                    gastos = JSON.parse(gastosGuardados).map(g => ({...g, fecha: new Date(g.fecha)}));
+                }
+            };
+            
+            const eliminarGasto = (id) => {
+                gastos = gastos.filter(g => g.id !== id);
+                guardarGastos();
+                renderizarInicio();
+                if (vistaActual === 'historial-view') applyHistoryFilter();
+            };
+            
+            const applyHistoryFilter = () => {
+                const inicioStr = fechaInicioInput.value;
+                const finStr = fechaFinInput.value;
+
+                if (!inicioStr || !finStr) {
+                    resumenCategoriasEl.innerHTML = '<p class="text-center text-gray-500 py-4">Por favor, selecciona un rango de fechas.</p>';
+                    return;
+                }
+                
+                const inicio = new Date(inicioStr + 'T00:00:00');
+                const fin = new Date(finStr + 'T23:59:59');
+
+                const gastosFiltrados = gastos.filter(g => g.fecha >= inicio && g.fecha <= fin);
+                renderizarHistorial(gastosFiltrados);
+            };
+
+            const renderizarInicio = () => {
+                listaGastosRecientes.innerHTML = '';
+
+                if (gastos.length === 0) {
+                    listaGastosRecientes.innerHTML = '<p class="text-center text-gray-500 py-4">No hay gastos registrados todavía.</p>';
+                } else {
+                    const gastosOrdenados = [...gastos].sort((a, b) => b.fecha - a.fecha);
+                    let lastRenderedDate = null;
+
+                    gastosOrdenados.forEach(gasto => {
+                        const expenseDateStr = gasto.fecha.toDateString();
+                        
+                        if (expenseDateStr !== lastRenderedDate) {
+                            const headingText = formatDateHeading(gasto.fecha);
+                            listaGastosRecientes.innerHTML += `<h3 class="text-md font-semibold text-gray-600 pt-4 pb-1">${headingText}</h3>`;
+                            lastRenderedDate = expenseDateStr;
+                        }
+
+                        const iconoId = CATEGORIA_ICONOS[gasto.categoria] || '#icon-otro';
+                        const colorClase = CATEGORIA_COLORES[gasto.categoria] || 'bg-gray-100';
+
+                        const elementoGasto = `
+                        <div class="flex items-center justify-between bg-white p-3 rounded-xl border space-x-2">
+                            <div class="flex items-center gap-4 truncate">
+                                <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${colorClase}">
+                                    <svg class="w-6 h-6"><use xlink:href="${iconoId}"></use></svg>
+                                </div>
+                                <div class="truncate">
+                                    <p class="font-semibold truncate">${gasto.descripcion || gasto.categoria}</p>
+                                    <p class="text-sm text-gray-500">${gasto.fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <p class="font-bold text-md sm:text-lg text-right">${formatearMoneda(gasto.monto)}</p>
+                                <button data-id="${gasto.id}" class="delete-btn text-gray-400 hover:text-red-500 transition-colors p-1 rounded-full">
+                                    <svg class="w-5 h-5" fill="currentColor"><use xlink:href="#icon-trash"></use></svg>
+                                </button>
+                            </div>
+                        </div>`;
+                        listaGastosRecientes.innerHTML += elementoGasto;
+                    });
+                }
+               
+                const hoy = new Date();
+                const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                
+                const gastosMes = gastos.filter(g => {
+                    const fechaGasto = new Date(g.fecha);
+                    return fechaGasto.getFullYear() === hoy.getFullYear() && fechaGasto.getMonth() === hoy.getMonth();
+                });
+
+                const totalMes = gastosMes.reduce((acc, gasto) => acc + gasto.monto, 0);
+                totalGastosMesEl.textContent = formatearMoneda(totalMes);
+            };
+            
+            const renderizarHistorial = (gastosFiltrados) => {
+                resumenCategoriasEl.innerHTML = '';
+                if (gastosFiltrados.length === 0) {
+                    resumenCategoriasEl.innerHTML = '<p class="text-center text-gray-500 py-4">No se encontraron gastos para el rango seleccionado.</p>';
+                    return;
+                }
+
+                const resumen = gastosFiltrados.reduce((acc, gasto) => {
+                    acc[gasto.categoria] = (acc[gasto.categoria] || 0) + gasto.monto;
+                    return acc;
+                }, {});
+                
+                const totalFiltrado = gastosFiltrados.reduce((acc, gasto) => acc + gasto.monto, 0);
+                
+                let content = `<div class="p-4 bg-gray-800 text-white rounded-lg mb-4">
+                    <p class="text-gray-300">Total del Periodo</p>
+                    <p class="text-2xl font-bold">${formatearMoneda(totalFiltrado)}</p>
+                </div>`;
+
+                for (const categoria in resumen) {
+                    const iconoId = CATEGORIA_ICONOS[categoria] || '#icon-otro';
+                    const colorClase = CATEGORIA_COLORES[categoria] || 'bg-gray-100';
+                    const porcentaje = totalFiltrado > 0 ? ((resumen[categoria] / totalFiltrado) * 100).toFixed(1) : 0;
+                    
+                    content += `
+                        <div class="bg-white p-3 rounded-xl border mb-2">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg flex items-center justify-center ${colorClase}">
+                                        <svg class="w-6 h-6"><use xlink:href="${iconoId}"></use></svg>
+                                    </div>
+                                    <p class="font-semibold">${categoria}</p>
+                                </div>
+                                <p class="font-bold">${formatearMoneda(resumen[categoria])}</p>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-violet-600 h-2.5 rounded-full" style="width: ${porcentaje}%"></div>
+                            </div>
+                             <p class="text-right text-sm text-gray-500 mt-1">${porcentaje}% del total</p>
+                        </div>
+                    `;
+                }
+                resumenCategoriasEl.innerHTML = content;
+            };
+
+            const renderizarBotonesCategoria = () => {
+                categoriaSelector.innerHTML = '';
+                Object.keys(CATEGORIA_ICONOS).forEach(categoria => {
+                    categoriaSelector.innerHTML += `
+                        <button type="button" data-categoria="${categoria}" class="category-btn flex flex-col items-center justify-center p-2 border-2 border-gray-200 rounded-lg transition-colors text-gray-600">
+                            <svg class="w-8 h-8 mb-1"><use xlink:href="${CATEGORIA_ICONOS[categoria]}"></use></svg>
+                            <span class="text-xs font-medium">${categoria}</span>
+                        </button>
+                    `;
+                });
+            };
+            
+            const formatDateToYYYYMMDD = (date) => date.toISOString().split('T')[0];
+
+            const cambiarVista = (idVista) => {
+                vistaActual = idVista;
+                vistas.forEach(vista => vista.classList.add('hidden'));
+                document.getElementById(idVista).classList.remove('hidden');
+
+                botonesNav.forEach(btn => {
+                    const isActive = btn.dataset.view === idVista;
+                    btn.classList.toggle('text-violet-600', isActive);
+                    btn.classList.toggle('bg-violet-100', isActive);
+                    btn.classList.toggle('text-gray-500', !isActive);
+                });
+
+                if (idVista === 'historial-view') {
+                    const hoy = new Date();
+                    const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+                    fechaInicioInput.value = formatDateToYYYYMMDD(inicio);
+                    fechaFinInput.value = formatDateToYYYYMMDD(hoy);
+                    applyHistoryFilter();
+                }
+            };
+            
+            const toggleModal = (modal, show = true) => modal.classList.toggle('hidden', !show);
+
+            // --- MANEJO DE EVENTOS ---
+            
+            botonesNav.forEach(btn => btn.addEventListener('click', () => cambiarVista(btn.dataset.view)));
+            viewAllBtn.addEventListener('click', () => cambiarVista('historial-view'));
+
+            abrirModalBtn.addEventListener('click', () => {
+                formGasto.reset();
+                fechaInput.value = formatDateToYYYYMMDD(new Date());
+                categoriaSelector.querySelectorAll('.category-btn').forEach(b => b.classList.remove('selected'));
+                const primerBoton = categoriaSelector.querySelector('.category-btn');
+                if(primerBoton) {
+                    primerBoton.classList.add('selected');
+                    categoriaHiddenInput.value = primerBoton.dataset.categoria;
+                }
+                toggleModal(modalGasto, true);
+            });
+
+            cerrarModalBtn.addEventListener('click', () => toggleModal(modalGasto, false));
+            modalGasto.addEventListener('click', e => (e.target === modalGasto) && toggleModal(modalGasto, false));
+            
+            formGasto.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (!categoriaHiddenInput.value) { return; }
+                
+                const fechaVal = fechaInput.value;
+                const fechaUTC = new Date(fechaVal + 'T00:00:00');
+
+                const nuevoGasto = {
+                    id: Date.now(),
+                    monto: parseFloat(document.getElementById('monto').value),
+                    descripcion: document.getElementById('descripcion').value.trim(),
+                    categoria: categoriaHiddenInput.value,
+                    fecha: fechaUTC
+                };
+
+                gastos.push(nuevoGasto);
+                guardarGastos();
+                renderizarInicio();
+
+                if (vistaActual === 'historial-view') {
+                    applyHistoryFilter();
+                }
+                
+                toggleModal(modalGasto, false);
+            });
+
+            listaGastosRecientes.addEventListener('click', (e) => {
+                const deleteBtn = e.target.closest('.delete-btn');
+                if (deleteBtn) {
+                    expenseIdToDelete = parseInt(deleteBtn.dataset.id, 10);
+                    toggleModal(modalConfirmDelete, true);
+                }
+            });
+            
+            cancelDeleteBtn.addEventListener('click', () => toggleModal(modalConfirmDelete, false));
+            modalConfirmDelete.addEventListener('click', e => (e.target === modalConfirmDelete) && toggleModal(modalConfirmDelete, false));
+            confirmDeleteBtn.addEventListener('click', () => {
+                if (expenseIdToDelete) eliminarGasto(expenseIdToDelete);
+                toggleModal(modalConfirmDelete, false);
+            });
+
+            filtrarBtn.addEventListener('click', applyHistoryFilter);
+            
+            resetFiltroBtn.addEventListener('click', () => {
+                fechaInicioInput.value = '';
+                fechaFinInput.value = '';
+                resumenCategoriasEl.innerHTML = '<p class="text-center text-gray-500 py-4">Aplica un filtro para ver el resumen.</p>';
+            });
+
+            categoriaSelector.addEventListener('click', (e) => {
+                const selectedBtn = e.target.closest('.category-btn');
+                if (!selectedBtn) return;
+                categoriaHiddenInput.value = selectedBtn.dataset.categoria;
+                categoriaSelector.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('selected'));
+                selectedBtn.classList.add('selected');
+            });
+
+            // --- INICIALIZACIÓN ---
+            const init = () => {
+                flatpickr.localize(flatpickr.l10ns.es);
+                const config = { dateFormat: "Y-m-d", allowInput: true, defaultDate: new Date() };
+                
+                flatpickr("#fecha", config);
+                flatpickr("#fecha-inicio", config);
+                flatpickr("#fecha-fin", config);
+
+                cargarGastos();
+                renderizarBotonesCategoria();
+                renderizarInicio();
+                cambiarVista('inicio-view');
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('sw.js')
+                        .then(reg => console.log('Service Worker registrado', reg))
+                        .catch(err => console.log('Error al registrar Service Worker', err));
+                }
+            };
+
+            init();
+        });
+    </script>
+</body>
+</html>
