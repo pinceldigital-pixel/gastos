@@ -1,0 +1,21 @@
+{
+  "name": "Rastreador de Gastos PWA",
+  "short_name": "Gastos",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
